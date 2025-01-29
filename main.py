@@ -2,8 +2,15 @@ import functions
 from datetime import datetime, timedelta
 import pandas as pd
 
+weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
 if __name__ == "__main__":
     df = pd.read_csv("data.csv")  
+
+
+    raport_columns = ["ID", "Name", "Date", "Weekday", "Time", "Type", "Asset", "R:R", "Result", "P/L"]
+    statistic_raport = pd.DataFrame(columns=raport_columns)
+    id_counter = 0
 
     for date in pd.unique(df["Date"]):
         # 6am start
@@ -20,6 +27,7 @@ if __name__ == "__main__":
                 break
         if missed_data == True:
             continue
+        
         pdLSH = day_params["pdLSH"]
         pdLSL = day_params["pdLSL"]
         adH = day_params["adH"]
@@ -74,26 +82,7 @@ if __name__ == "__main__":
                 (df["Time"].str.startswith(start_datetime.strftime("%H:%M")))
             ]
             
-            print(candle)
-            print(sell_price)
-            print(buy_price)
-            print("-"*10)
-
-            if active_order_type == "SELL":
-                # if stop loss hit
-                if candle["High"].item() >= SL:
-                    pass
-                # if take profit hit
-                elif candle["Low"].item() <= TP:
-                    pass
-            elif active_order_type == "BUY":
-                # if stop loss hit
-                if candle["Low"].item() <= SL:
-                    pass
-                elif candle["High"].item() >= TP:
-                    pass
-            
-            elif active_order_type is None:
+            if active_order_type is None:
                 if sell_price is not None and candle["High"].item() >= sell_price:
                     active_order_type = "SELL"
                     SL = pdLSH
@@ -101,9 +90,17 @@ if __name__ == "__main__":
                     risk = SL - sell_price
                     reward = sell_price - TP
                     if risk > 0:
-                        RR = f"1 : {round(reward / risk, 2)}"
+                        RR = f"1:{round(reward / risk, 2)}"
                     else:
-                        RR = "Undefined (risk <= 0)"
+                        RR = "Undefined(risk <= 0)"
+
+                    id_counter += 1
+                    new_data = pd.DataFrame([[id_counter, "OPENING", start_datetime.date(), weekdays[start_datetime.weekday()], start_datetime.time(), "SELL", "XAUUSD", RR, None, None]],
+                                            columns=raport_columns)
+                    
+                    df = pd.concat([df, new_data], ignore_index=True)
+                    start_datetime += timedelta(minutes=15)
+                    continue
 
                 elif buy_price is not None and candle["Low"].item() <= buy_price:
                     active_order_type = "BUY"
@@ -112,11 +109,94 @@ if __name__ == "__main__":
                     risk = buy_price - SL
                     reward = TP - buy_price
                     if risk > 0:
-                        RR = f"1 : {round(reward / risk, 2)}"  
+                        RR = f"1:{round(reward / risk, 2)}"  
                     else:
-                        RR = "Undefined (risk <= 0)"
+                        RR = "Undefined(risk <= 0)"
 
-                start_datetime += timedelta(minutes=15)
+                    id_counter += 1
+                    new_data = pd.DataFrame([[id_counter, "OPENING", start_datetime.date(), weekdays[start_datetime.weekday()], start_datetime.time(), "BUY", "XAUUSD", RR, None, None]],
+                                            columns=raport_columns)
+                    statistic_raport = pd.concat([statistic_raport, new_data], ignore_index=True)
+                    start_datetime += timedelta(minutes=15)
+                    continue
+
+            if active_order_type == "SELL":
+                # if stop loss hit
+                if SL is not None and candle["High"].item() >= SL:
+                    new_data = pd.DataFrame([[id_counter, "CLOSING", start_datetime.date(), weekdays[start_datetime.weekday()], start_datetime.time(), "SELL", "XAUUSD", RR, "LOSS", "-1"]],
+                                            columns=raport_columns)
+                    statistic_raport = pd.concat([statistic_raport, new_data], ignore_index=True)
+                    sell_price = None
+                    buy_price = None
+                    half_fib_sell = None
+                    half_fib_buy = None
+
+                    SL = None
+                    TP = None
+                    risk = None
+                    reward = None
+                    RR = None
+                    
+
+                # if take profit hit
+                elif TP is not None and candle["Low"].item() <= TP:
+                    pl = "+" + RR.split(":")[1]
+                    new_data = pd.DataFrame([[id_counter, "CLOSING", start_datetime.date(), weekdays[start_datetime.weekday()], start_datetime.time(), "SELL", "XAUUSD", RR, "WIN", pl]],
+                                            columns=raport_columns)
+                    statistic_raport = pd.concat([statistic_raport, new_data], ignore_index=True)
+                    active_order_type = None
+                    sell_price = None
+                    buy_price = None
+                    half_fib_sell = None
+                    half_fib_buy = None
+
+                    SL = None
+                    TP = None
+                    risk = None
+                    reward = None
+                    RR = None
+
+            elif active_order_type == "BUY":
+                # if stop loss hit
+                if SL is not None and candle["Low"].item() <= SL:
+                    new_data = pd.DataFrame([[id_counter, "CLOSING", start_datetime.date(), weekdays[start_datetime.weekday()], start_datetime.time(), "BUY", "XAUUSD", RR, "LOSS", "-1"]],
+                                            columns=raport_columns)
+                    statistic_raport = pd.concat([statistic_raport, new_data], ignore_index=True)
+                    active_order_type = None
+                    sell_price = None
+                    buy_price = None
+                    half_fib_sell = None
+                    half_fib_buy = None
+
+                    SL = None
+                    TP = None
+                    risk = None
+                    reward = None
+                    RR = None
+
+                # if take profit hit
+                elif TP is not None and candle["High"].item() >= TP:
+                    pl = "+" + RR.split(":")[1]
+                    new_data = pd.DataFrame([[id_counter, "CLOSING", start_datetime.date(), weekdays[start_datetime.weekday()], start_datetime.time(), "BUY", "XAUUSD", RR, "WIN", pl]],
+                                            columns=raport_columns)
+                    statistic_raport = pd.concat([statistic_raport, new_data], ignore_index=True)
+                    sell_price = None
+                    buy_price = None
+                    half_fib_sell = None
+                    half_fib_buy = None
+
+                    SL = None
+                    TP = None
+                    risk = None
+                    reward = None
+                    RR = None
+
+
+            start_datetime += timedelta(minutes=15)
+            print("-"*10)
+            print(statistic_raport)
+
+        
                 
             
 
