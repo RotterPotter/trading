@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "trading-github"
+version = "0.1.0"
+description = ""
+authors = ["Oleksandr Nazarevych <oleksandr.o.nazarevych@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^2.2.3"
+ace-tools = "^0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
